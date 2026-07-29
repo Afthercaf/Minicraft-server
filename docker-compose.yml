@@ -1,0 +1,46 @@
+# Servidor Minecraft Forge - UNICO contenedor.
+# RCON y el puerto de juego solo escuchan en localhost;
+# se publican al exterior unicamente a traves de Tailscale (ver instrucciones de despliegue).
+services:
+  minecraft:
+    # java17: Forge 1.20.1 NO es compatible con Java 21+ (rompe comandos RCON)
+    image: itzg/minecraft-server:java17
+    container_name: mc-forge
+    restart: unless-stopped
+    stop_grace_period: 60s
+    environment:
+      EULA: "TRUE"
+      TYPE: FORGE
+      VERSION: ${MC_VERSION:-1.20.1}
+      FORGE_VERSION: ${FORGE_VERSION:-}
+      MEMORY: ${MC_MEMORY:-4G}
+      MAX_PLAYERS: ${MAX_PLAYERS:-10}
+      ENABLE_RCON: "true"
+      RCON_PASSWORD: ${RCON_PASSWORD:?Define RCON_PASSWORD en .env}
+      ONLINE_MODE: ${ONLINE_MODE:-true}
+      ENFORCE_WHITELIST: ${ENABLE_WHITELIST:-true}
+      WHITELIST: ${WHITELIST_PLAYERS:-}
+      MOTD: ${MOTD:-Servidor Privado}
+      DIFFICULTY: ${DIFFICULTY:-normal}
+      SPAWN_PROTECTION: ${SPAWN_PROTECTION:-16}
+      TZ: ${TZ:-America/Mexico_City}
+      # Endurecimiento
+      ENABLE_QUERY: "false"
+      BROADCAST_RCON_TO_OPS: "false"
+    ports:
+      # Puerto de juego: solo localhost. Los jugadores entran por Tailscale.
+      - "127.0.0.1:25565:25565"
+      # RCON: solo localhost. El backend de Render entra por Tailscale Funnel (TLS).
+      - "127.0.0.1:25575:25575"
+    volumes:
+      # El admin mueve archivos (mods, configs) directamente aqui:
+      # D:\Server de Minecraft\server-data\
+      - ./server-data:/data
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "mc-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s

@@ -1,0 +1,20 @@
+# Secretos - NUNCA subir
+.env
+*.env
+!.env.example
+
+# Datos del servidor (mundo, mods, configs reales)
+server-data/
+
+# Node
+node_modules/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Sistema
+Thumbs.db
+.DS_Store
