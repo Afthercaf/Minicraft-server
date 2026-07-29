@@ -4,7 +4,7 @@ const API_URL = (import.meta.env.VITE_API_URL as string).replace(/\/+$/, '')
 
 interface ApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
-  body?: unknown
+  body?: unknown | FormData
 }
 
 export class ApiError extends Error {
@@ -33,14 +33,15 @@ async function validToken(forceRefresh = false) {
 }
 
 async function request(path: string, options: ApiOptions, token: string | null) {
+  const formData = options.body instanceof FormData
   const response = await fetch(`${API_URL}${path}`, {
     method: options.method || 'GET',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       'X-Requested-With': 'XMLHttpRequest',
-      ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(options.body !== undefined && !formData ? { 'Content-Type': 'application/json' } : {}),
     },
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    body: options.body !== undefined ? (formData ? options.body as FormData : JSON.stringify(options.body)) : undefined,
   })
   const json = (await response.json().catch(() => ({}))) as Record<string, unknown>
   return { response, json }

@@ -6,6 +6,7 @@ Panel visual para administrar el servidor Minecraft Forge.
 
 - Consola y logs del contenedor actualizados cada 3 segundos.
 - Explorador seguro de `server-data`, incluyendo mods, configs, logs y mundos.
+- Subida protegida de mods `.jar` de hasta 256 MB con permiso independiente.
 - Estado de Docker, CPU, memoria, red y salud del contenedor.
 - Jugadores, whitelist, operadores, bloqueos y gamerules.
 - Cuentas con permisos independientes.
@@ -81,6 +82,7 @@ El contenedor `mc-redis` se utiliza exclusivamente para:
 - cachear los logs de consola durante 2 segundos;
 - cachear las métricas de Docker durante 3 segundos;
 - compartir los contadores de rate limiting de lecturas y acciones.
+- cachear los listados de archivos durante 5 segundos.
 
 Redis escucha solamente en `127.0.0.1:6379`, requiere contraseña, tiene un
 límite de 128 MB y elimina automáticamente las entradas menos usadas mediante

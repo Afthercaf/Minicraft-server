@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../lib/api'
-const PERMISSIONS = [['status','Ver estado'],['console','Consola y logs'],['players','Jugadores'],['config','Configuración'],['files','Archivos y mods'],['docker','Ver Docker'],['power','Encender, detener y reiniciar']] as const
+const PERMISSIONS = [['status','Ver estado'],['console','Consola y logs'],['players','Jugadores'],['config','Configuración'],['files','Ver archivos'],['mods','Subir mods'],['docker','Ver Docker'],['power','Encender, detener y reiniciar']] as const
 interface User { id:string; email:string; createdAt:string; permissions:string[]; superadmin:boolean }
 export default function UsersPanel(){
  const [users,setUsers]=useState<User[]>([]),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[selected,setSelected]=useState<string[]>(['status']),[error,setError]=useState(''),[message,setMessage]=useState('')

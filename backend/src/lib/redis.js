@@ -38,3 +38,9 @@ export async function setCachedJson(key, value, ttlSeconds) {
   if (!redisReady || !redisClient) return
   await redisClient.set(key, JSON.stringify(value), { EX: ttlSeconds }).catch(() => {})
 }
+
+export async function deleteCached(keys) {
+  if (!redisReady || !redisClient) return
+  const list = Array.isArray(keys) ? keys : [keys]
+  if (list.length) await redisClient.del(list).catch(() => {})
+}

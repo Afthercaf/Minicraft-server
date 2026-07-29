@@ -56,6 +56,9 @@ export function csrfProtection(req, res, next) {
 // Content-Type restringido a JSON (MD: "Solo se acepta application/json")
 export function jsonContentTypeOnly(req, res, next) {
   if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+    if (req.method === 'POST' && req.path === '/api/files/mods' && req.is('multipart/form-data')) {
+      return next()
+    }
     if (!req.is('application/json')) {
       return res.status(415).json({ error: 'Solo se acepta application/json' })
     }

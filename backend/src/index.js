@@ -47,7 +47,8 @@ app.use((req, res) => res.status(404).json({ error: 'No encontrado' }))
 // Manejador de errores: mensajes genericos, sin stack traces (MD: errores 422 genericos)
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  const status = Number.isInteger(err.status) && err.status >= 400 && err.status < 600 ? err.status : 500
+  const uploadStatus = err.code === 'LIMIT_FILE_SIZE' ? 413 : err.code?.startsWith?.('LIMIT_') ? 400 : null
+  const status = uploadStatus || (Number.isInteger(err.status) && err.status >= 400 && err.status < 600 ? err.status : 500)
   const safeMessages = {
     400: 'Solicitud inválida',
     403: err.message === 'Origen no permitido' ? 'Origen no permitido' : 'Acceso denegado',
