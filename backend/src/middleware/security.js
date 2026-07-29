@@ -56,7 +56,13 @@ export function csrfProtection(req, res, next) {
 // Content-Type restringido a JSON (MD: "Solo se acepta application/json")
 export function jsonContentTypeOnly(req, res, next) {
   if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
-    if (req.method === 'POST' && req.path === '/api/files/mods' && req.is('multipart/form-data')) {
+    const contentType = String(req.headers['content-type'] || '').toLowerCase()
+    const uploadPath = (req.originalUrl || req.url || '').split('?', 1)[0]
+    if (
+      req.method === 'POST' &&
+      uploadPath === '/api/files/mods' &&
+      contentType.startsWith('multipart/form-data;')
+    ) {
       return next()
     }
     if (!req.is('application/json')) {
