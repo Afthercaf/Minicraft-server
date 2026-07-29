@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import ConsolePanel from '../components/ConsolePanel'
 import PlayersPanel from '../components/PlayersPanel'
 import ConfigPanel from '../components/ConfigPanel'
@@ -42,10 +42,14 @@ export default function Dashboard() {
     let active = true
     api<Me>('/api/me')
       .then((data) => { if (active) setMe(data.user) })
-      .catch(async () => {
-        // Borra solo la sesión de este navegador. No hace una petición global
-        // de logout que pueda fallar cuando el token ya expiró.
-        await supabase.auth.signOut({ scope: 'local' })
+      .catch(async (err) => {
+        // Un fallo temporal del túnel o backend no debe destruir la sesión.
+        if (err instanceof ApiError && err.status === 401) {
+          const { data } = await supabase.auth.refreshSession()
+          if (!data.session) await supabase.auth.signOut({ scope: 'local' })
+        } else if (active) {
+          setError(err instanceof Error ? err.message : 'No se pudo conectar con el backend')
+        }
       })
     return () => { active = false }
   }, [])

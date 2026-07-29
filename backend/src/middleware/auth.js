@@ -9,11 +9,13 @@ export async function requireAuth(req, res, next) {
   try {
     const header = req.headers.authorization || ''
     const token = header.startsWith('Bearer ') ? header.slice(7) : null
-    if (!token) {
-      return res.status(401).json({ error: 'No autorizado' })
-    }
+    if (!token) return res.status(401).json({ error: 'No autorizado' })
 
     const { data, error } = await supabase.auth.getUser(token)
+    // Una caída temporal de Supabase no significa que la sesión haya expirado.
+    if (error?.status >= 500) {
+      return res.status(503).json({ error: 'Autenticación temporalmente no disponible' })
+    }
     if (error || !data?.user) {
       return res.status(401).json({ error: 'Sesión inválida' })
     }
@@ -27,7 +29,7 @@ export async function requireAuth(req, res, next) {
     }
     next()
   } catch {
-    return res.status(401).json({ error: 'Sesión inválida' })
+    return res.status(503).json({ error: 'Autenticación temporalmente no disponible' })
   }
 }
 
