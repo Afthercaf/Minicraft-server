@@ -16,6 +16,7 @@ dist/
 __pycache__/
 *.pyc
 .venv/
+runtime-logs/
 
 # Sistema
 Thumbs.db

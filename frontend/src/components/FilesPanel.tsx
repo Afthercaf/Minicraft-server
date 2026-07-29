@@ -44,8 +44,13 @@ export default function FilesPanel() {
     setUploading(true); setError(''); setMessage('')
     const body = new FormData(); body.append('mod', file)
     try {
-      await api('/api/files/mods', { method: 'POST', body })
-      setMessage(`${file.name} se subió correctamente. Reinicia Minecraft para cargarlo.`)
+      const result = await api<{ dependency?: string; dependencyWarning?: string }>('/api/files/mods', { method: 'POST', body })
+      const dependencyNote = result.dependency
+        ? ` También se instaló automáticamente ${result.dependency}.`
+        : result.dependencyWarning
+          ? ` No se pudo instalar la dependencia: ${result.dependencyWarning}.`
+          : ''
+      setMessage(`${file.name} se subió correctamente.${dependencyNote} Reinicia Minecraft para cargarlo.`)
       await load('mods')
     } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo subir el mod') }
     finally { setUploading(false); if (inputRef.current) inputRef.current.value = '' }

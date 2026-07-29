@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import path from 'node:path'
 import { promises as fs, mkdirSync } from 'node:fs'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import multer from 'multer'
 import { config } from '../config.js'
 import { requirePermission } from '../middleware/auth.js'
@@ -30,6 +30,42 @@ function safePath(input = '') {
   const resolved = path.resolve(root, normalized)
   if (resolved !== root && !resolved.startsWith(root + path.sep)) throw Object.assign(new Error(), { status: 403 })
   return { resolved, relative: normalized }
+}
+
+async function ensureSophisticatedCore(modName) {
+  if (!modName.toLowerCase().startsWith('sophisticatedbackpacks-')) return null
+  const installed = await fs.readdir(modsRoot).catch(() => [])
+  if (installed.some((name) => name.toLowerCase().startsWith('sophisticatedcore-') && name.toLowerCase().endsWith('.jar'))) {
+    return null
+  }
+
+  const endpoint = 'https://api.modrinth.com/v2/project/sophisticated-core/version?loaders=%5B%22forge%22%5D&game_versions=%5B%221.20.1%22%5D'
+  const versionsResponse = await fetch(endpoint, {
+    headers: { 'User-Agent': 'CraftControl/1.0 (private Minecraft server)' },
+    signal: AbortSignal.timeout(15_000),
+  })
+  if (!versionsResponse.ok) throw new Error('No se pudo consultar Sophisticated Core en Modrinth')
+  const versions = await versionsResponse.json()
+  const release = versions.find((version) => version.version_type === 'release')
+  const file = release?.files?.find((candidate) => candidate.primary) || release?.files?.[0]
+  if (!file?.url || !file?.hashes?.sha512 || !/^sophisticatedcore-[A-Za-z0-9._+-]+\.jar$/i.test(file.filename)) {
+    throw new Error('Modrinth no devolvió una dependencia válida')
+  }
+
+  const download = await fetch(file.url, { signal: AbortSignal.timeout(60_000) })
+  if (!download.ok) throw new Error('No se pudo descargar Sophisticated Core')
+  const declaredSize = Number(download.headers.get('content-length') || 0)
+  if (declaredSize > 50 * 1024 * 1024) throw new Error('La dependencia supera el límite permitido')
+  const bytes = Buffer.from(await download.arrayBuffer())
+  if (bytes.length > 50 * 1024 * 1024) throw new Error('La dependencia supera el límite permitido')
+  const actualHash = createHash('sha512').update(bytes).digest('hex')
+  if (actualHash !== file.hashes.sha512.toLowerCase()) throw new Error('La verificación de Sophisticated Core falló')
+
+  const temporary = path.join(uploadRoot, `${randomUUID()}.dependency`)
+  const destination = path.join(modsRoot, file.filename)
+  await fs.writeFile(temporary, bytes)
+  await fs.rename(temporary, destination)
+  return file.filename
 }
 
 filesRouter.get('/', requirePermission('files'), readLimiter, async (req, res, next) => {
@@ -74,9 +110,19 @@ filesRouter.post('/mods', requirePermission('mods'), actionLimiter, upload.singl
     try { await fs.access(destination); await fs.unlink(req.file.path); return res.status(409).json({ error: 'Ya existe un mod con ese nombre' }) }
     catch (err) { if (err.code !== 'ENOENT') throw err }
     await fs.rename(req.file.path, destination)
+    let dependency = null
+    let dependencyWarning = null
+    try { dependency = await ensureSophisticatedCore(original) }
+    catch (err) { dependencyWarning = err.message }
     await deleteCached(['mc-admin:files:root', 'mc-admin:files:mods'])
     const stat = await fs.stat(destination)
-    res.status(201).json({ ok: true, mod: { name: original, size: stat.size }, restartRequired: true })
+    res.status(201).json({
+      ok: true,
+      mod: { name: original, size: stat.size },
+      dependency,
+      dependencyWarning,
+      restartRequired: true,
+    })
   } catch (err) {
     if (req.file?.path) await fs.unlink(req.file.path).catch(() => {})
     next(err)
