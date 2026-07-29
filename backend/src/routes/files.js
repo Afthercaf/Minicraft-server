@@ -68,6 +68,16 @@ async function ensureSophisticatedCore(modName) {
   return file.filename
 }
 
+// Repara también mods que ya estaban en la carpeta antes de usar el panel.
+fs.readdir(modsRoot)
+  .then((names) => names.find((name) => name.toLowerCase().startsWith('sophisticatedbackpacks-')))
+  .then(async (backpack) => {
+    if (!backpack) return
+    const dependency = await ensureSophisticatedCore(backpack)
+    if (dependency) console.log(`Dependencia instalada automáticamente: ${dependency}`)
+  })
+  .catch((err) => console.error(`Dependencia automática pendiente: ${err.message}`))
+
 filesRouter.get('/', requirePermission('files'), readLimiter, async (req, res, next) => {
   try {
     const { resolved, relative } = safePath(req.query.path)
