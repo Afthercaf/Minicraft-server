@@ -12,7 +12,7 @@ services:
     healthCheckPath: /healthz
     envVars:
       - key: FRONTEND_URL
-        value: https://mc-admin-frontend.onrender.com
+        value: https://minicraft-server-z7uz.onrender.com
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY

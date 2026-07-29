@@ -31,7 +31,7 @@ cambio requiere reiniciar Minecraft para aplicarse.
 Agrega al `.env` del backend:
 
 ```env
-FRONTEND_URL=http://localhost:5173
+FRONTEND_URL=http://localhost:5173,http://127.0.0.1:5173,https://minicraft-server-z7uz.onrender.com
 SUPABASE_URL=https://TU-PROYECTO.supabase.co
 SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
