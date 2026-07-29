@@ -38,7 +38,7 @@ export const strictCors = cors({
     }
     return callback(Object.assign(new Error('Origen no permitido'), { status: 403 }))
   },
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   maxAge: 86400,
 })

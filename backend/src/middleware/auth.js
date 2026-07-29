@@ -5,9 +5,7 @@ const supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 })
 
-// Verifica el JWT de Supabase y exige que sea el superadmin.
-// Cualquier otro usuario autenticado recibe 403 en TODO.
-export async function requireSuperAdmin(req, res, next) {
+export async function requireAuth(req, res, next) {
   try {
     const header = req.headers.authorization || ''
     const token = header.startsWith('Bearer ') ? header.slice(7) : null
@@ -20,13 +18,27 @@ export async function requireSuperAdmin(req, res, next) {
       return res.status(401).json({ error: 'Sesión inválida' })
     }
 
-    if ((data.user.email || '').toLowerCase() !== config.superadminEmail) {
-      return res.status(403).json({ error: 'Acceso denegado' })
+    const superadmin = (data.user.email || '').toLowerCase() === config.superadminEmail
+    req.user = {
+      id: data.user.id,
+      email: data.user.email,
+      superadmin,
+      permissions: superadmin ? ['*'] : (data.user.app_metadata?.permissions || []),
     }
-
-    req.user = { id: data.user.id, email: data.user.email }
     next()
   } catch {
     return res.status(401).json({ error: 'Sesión inválida' })
   }
+}
+
+export function requirePermission(permission) {
+  return (req, res, next) => {
+    if (req.user?.superadmin || req.user?.permissions?.includes(permission)) return next()
+    return res.status(403).json({ error: 'No tienes permiso para esta sección' })
+  }
+}
+
+export function requireSuperAdmin(req, res, next) {
+  if (req.user?.superadmin) return next()
+  return res.status(403).json({ error: 'Solo el superadmin puede realizar esta acción' })
 }

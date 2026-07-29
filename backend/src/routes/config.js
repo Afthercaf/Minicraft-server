@@ -1,8 +1,10 @@
 import { Router } from 'express'
 import { rconCommand } from '../lib/rcon.js'
 import { actionLimiter, readLimiter } from '../middleware/rateLimit.js'
+import { requirePermission } from '../middleware/auth.js'
 
 export const configRouter = Router()
+configRouter.use(requirePermission('config'))
 
 // Configuracion en vivo via RCON.
 // NOTA: server.properties, mods y archivos SOLO los edita el admin

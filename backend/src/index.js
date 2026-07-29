@@ -2,11 +2,14 @@ import express from 'express'
 import { config } from './config.js'
 import { securityHeaders, strictCors, csrfProtection, jsonContentTypeOnly } from './middleware/security.js'
 import { globalLimiter } from './middleware/rateLimit.js'
-import { requireSuperAdmin } from './middleware/auth.js'
+import { requireAuth } from './middleware/auth.js'
 import { consoleRouter } from './routes/console.js'
 import { configRouter } from './routes/config.js'
 import { playersRouter } from './routes/players.js'
 import { powerRouter } from './routes/power.js'
+import { filesRouter } from './routes/files.js'
+import { systemRouter } from './routes/system.js'
+import { usersRouter } from './routes/users.js'
 
 const app = express()
 
@@ -25,11 +28,15 @@ app.use(express.json({ limit: '10kb' }))
 app.get('/healthz', (req, res) => res.json({ ok: true }))
 
 // ---- Todo lo demas exige JWT de Supabase + email superadmin ----
-app.use('/api', requireSuperAdmin)
+app.use('/api', requireAuth)
+app.get('/api/me', (req, res) => res.json({ user: req.user }))
 app.use('/api/console', consoleRouter)
 app.use('/api/config', configRouter)
 app.use('/api/players', playersRouter)
 app.use('/api/power', powerRouter)
+app.use('/api/files', filesRouter)
+app.use('/api/system', systemRouter)
+app.use('/api/users', usersRouter)
 
 // 404 - sin filtrar rutas existentes (MD: paths admin ocultos)
 app.use((req, res) => res.status(404).json({ error: 'No encontrado' }))

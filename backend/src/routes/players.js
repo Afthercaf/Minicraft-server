@@ -1,8 +1,10 @@
 import { Router } from 'express'
 import { rconCommand } from '../lib/rcon.js'
 import { actionLimiter, readLimiter } from '../middleware/rateLimit.js'
+import { requirePermission } from '../middleware/auth.js'
 
 export const playersRouter = Router()
+playersRouter.use(requirePermission('players'))
 
 const USERNAME_RE = /^[A-Za-z0-9_]{3,16}$/
 const IPV4_RE = /^(?:\d{1,3}\.){3}\d{1,3}$/

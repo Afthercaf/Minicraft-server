@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { rconCommand } from '../lib/rcon.js'
 import { actionLimiter, readLimiter } from '../middleware/rateLimit.js'
+import { requirePermission } from '../middleware/auth.js'
 
 export const consoleRouter = Router()
 
@@ -18,7 +19,7 @@ function parsePlayerList(raw) {
   }
 }
 
-consoleRouter.get('/status', readLimiter, async (req, res, next) => {
+consoleRouter.get('/status', requirePermission('status'), readLimiter, async (req, res, next) => {
   try {
     const raw = await rconCommand('list', 8000)
     res.json({ online: true, players: parsePlayerList(raw) })
@@ -30,7 +31,7 @@ consoleRouter.get('/status', readLimiter, async (req, res, next) => {
   }
 })
 
-consoleRouter.post('/send', actionLimiter, async (req, res, next) => {
+consoleRouter.post('/send', requirePermission('console'), actionLimiter, async (req, res, next) => {
   try {
     const command = String(req.body?.command || '').trim().replace(/^\//, '')
     if (!command || command.length > 500) {

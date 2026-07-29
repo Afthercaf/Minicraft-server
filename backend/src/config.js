@@ -5,7 +5,10 @@ export const config = {
   frontendUrl: (process.env.FRONTEND_URL || '').replace(/\/+$/, ''),
   supabaseUrl: process.env.SUPABASE_URL || '',
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   superadminEmail: (process.env.SUPERADMIN_EMAIL || 'afthercaft10@gmail.com').toLowerCase(),
+  serverDataPath: process.env.SERVER_DATA_PATH || '../server-data',
+  dockerContainer: process.env.DOCKER_CONTAINER || 'mc-forge',
   // RCON del servidor local, expuesto via Tailscale Funnel (TLS terminado)
   rconHost: process.env.RCON_HOST || '',
   rconPort: parseInt(process.env.RCON_PORT || '8443', 10),

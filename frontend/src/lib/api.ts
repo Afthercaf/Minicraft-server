@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 const API_URL = (import.meta.env.VITE_API_URL as string).replace(/\/+$/, '')
 
 interface ApiOptions {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
   body?: unknown
 }
 
