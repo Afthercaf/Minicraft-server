@@ -33,7 +33,7 @@ export const securityHeaders = [
 // CORS estricto: solo el origen exacto del frontend (MD: "Origen no permitido")
 export const strictCors = cors({
   origin: (origin, callback) => {
-    if (!origin || origin === config.frontendUrl) {
+    if (!origin || config.frontendUrls.includes(origin.replace(/\/+$/, ''))) {
       return callback(null, true)
     }
     return callback(Object.assign(new Error('Origen no permitido'), { status: 403 }))

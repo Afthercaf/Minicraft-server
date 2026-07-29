@@ -4,6 +4,7 @@ import { promisify } from 'node:util'
 import { config } from '../config.js'
 import { requirePermission } from '../middleware/auth.js'
 import { actionLimiter, readLimiter } from '../middleware/rateLimit.js'
+import { getCachedJson, redisReady, setCachedJson } from '../lib/redis.js'
 
 const exec = promisify(execFile)
 export const systemRouter = Router()
@@ -15,6 +16,8 @@ async function docker(args) {
 
 systemRouter.get('/docker', requirePermission('docker'), readLimiter, async (req, res) => {
   try {
+    const cached = await getCachedJson('mc-admin:docker-status')
+    if (cached) return res.json({ ...cached, cached: true, cache: 'Redis activo' })
     const raw = await docker(['inspect', config.dockerContainer, '--format',
       '{{json .State}}|{{json .HostConfig}}|{{json .Config.Image}}'])
     const [stateRaw, hostRaw, imageRaw] = raw.split('|')
@@ -24,7 +27,7 @@ systemRouter.get('/docker', requirePermission('docker'), readLimiter, async (req
       ? await docker(['stats', config.dockerContainer, '--no-stream', '--format', '{{json .}}'])
       : '{}'
     const stats = JSON.parse(statsRaw || '{}')
-    res.json({
+    const result = {
       available: true,
       container: config.dockerContainer,
       image: JSON.parse(imageRaw),
@@ -36,7 +39,9 @@ systemRouter.get('/docker', requirePermission('docker'), readLimiter, async (req
       cpu: stats.CPUPerc || '0%',
       memory: stats.MemUsage || '—',
       network: stats.NetIO || '—',
-    })
+    }
+    await setCachedJson('mc-admin:docker-status', result, 3)
+    res.json({ ...result, cached: false, cache: redisReady ? 'Redis activo' : 'Memoria local' })
   } catch {
     res.json({ available: false, container: config.dockerContainer, status: 'no disponible' })
   }
@@ -45,8 +50,13 @@ systemRouter.get('/docker', requirePermission('docker'), readLimiter, async (req
 systemRouter.get('/logs', requirePermission('console'), readLimiter, async (req, res) => {
   try {
     const lines = Math.min(Math.max(parseInt(req.query.lines || '250', 10), 20), 1000)
+    const cacheKey = `mc-admin:console-logs:${lines}`
+    const cached = await getCachedJson(cacheKey)
+    if (cached) return res.json({ lines: cached, cached: true })
     const output = await docker(['logs', '--tail', String(lines), '--timestamps', config.dockerContainer])
-    res.json({ lines: output.split(/\r?\n/).filter(Boolean) })
+    const logLines = output.split(/\r?\n/).filter(Boolean)
+    await setCachedJson(cacheKey, logLines, 2)
+    res.json({ lines: logLines, cached: false })
   } catch (err) {
     res.status(502).json({ error: 'No se pudieron leer los logs de Docker' })
   }

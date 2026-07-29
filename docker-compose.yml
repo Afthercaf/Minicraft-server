@@ -2,6 +2,34 @@
 # RCON y el puerto de juego solo escuchan en localhost;
 # se publican al exterior unicamente a traves de Tailscale (ver instrucciones de despliegue).
 services:
+  redis:
+    image: redis:7.4-alpine
+    container_name: mc-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD:?Define REDIS_PASSWORD en .env}
+      - --maxmemory
+      - 128mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    ports:
+      # Redis solo escucha en esta PC. Nunca se publica por Tailscale.
+      - "127.0.0.1:6379:6379"
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    mem_limit: 160m
+
   minecraft:
     # java17: Forge 1.20.1 NO es compatible con Java 21+ (rompe comandos RCON)
     image: itzg/minecraft-server:java17

@@ -42,7 +42,10 @@ services:
       - key: VITE_SUPABASE_ANON_KEY
         sync: false
       - key: VITE_API_URL
-        value: https://mc-admin-backend.onrender.com
+        # El frontend de Render se conecta directamente al backend protegido
+        # de la PC por Tailscale Funnel. /redis es solo el punto HTTPS;
+        # Redis NO se expone a Internet.
+        value: https://killerexpert10.tail29c8ce.ts.net/redis
     routes:
       # SPA: todas las rutas caen en index.html
       - type: rewrite
@@ -76,4 +79,4 @@ services:
         value: camera=(), microphone=(), geolocation=(), payment=(), usb=()
       - path: /*
         name: Content-Security-Policy
-        value: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://mc-admin-backend.onrender.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+        value: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://killerexpert10.tail29c8ce.ts.net; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
