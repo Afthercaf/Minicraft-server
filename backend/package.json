@@ -19,6 +19,7 @@
     "express-rate-limit": "^8.6.0",
     "helmet": "^8.0.0",
     "multer": "^2.2.0",
+    "prismarine-nbt": "^2.7.0",
     "rate-limit-redis": "^6.0.0",
     "redis": "^6.1.0"
   }

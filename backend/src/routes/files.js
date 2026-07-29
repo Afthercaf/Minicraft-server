@@ -13,6 +13,7 @@ const root = path.resolve(config.serverDataPath)
 const modsRoot = path.join(root, 'mods')
 const uploadRoot = path.join(root, '.uploads')
 const textExtensions = new Set(['.txt', '.log', '.json', '.properties', '.toml', '.conf', '.yml', '.yaml', '.cfg'])
+const hiddenPanelFiles = new Set(['panel-player-snapshots.json', 'panel-deaths.json'])
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -27,6 +28,7 @@ const upload = multer({
 
 function safePath(input = '') {
   const normalized = String(input).replaceAll('\\', '/').replace(/^\/+/, '')
+  if (hiddenPanelFiles.has(path.posix.basename(normalized))) throw Object.assign(new Error(), { status: 403 })
   const resolved = path.resolve(root, normalized)
   if (resolved !== root && !resolved.startsWith(root + path.sep)) throw Object.assign(new Error(), { status: 403 })
   return { resolved, relative: normalized }
@@ -85,7 +87,7 @@ filesRouter.get('/', requirePermission('files'), readLimiter, async (req, res, n
     const cached = await getCachedJson(cacheKey)
     if (cached) return res.json({ ...cached, cached: true })
     const entries = await fs.readdir(resolved, { withFileTypes: true })
-    const data = await Promise.all(entries.filter((e) => !e.name.startsWith('.')).map(async (entry) => {
+    const data = await Promise.all(entries.filter((e) => !e.name.startsWith('.') && !hiddenPanelFiles.has(e.name)).map(async (entry) => {
       const full = path.join(resolved, entry.name)
       const stat = await fs.stat(full)
       return { name: entry.name, path: path.posix.join(relative, entry.name), type: entry.isDirectory() ? 'folder' : 'file', size: stat.size, modified: stat.mtime }

@@ -12,6 +12,10 @@ Panel visual para administrar el servidor Minecraft Forge.
 - Cuentas con permisos independientes.
 - Identidad editable: nombre, icono, color, dirección e IP del servidor.
 - Máximo de jugadores editable por el superadmin.
+- Ayuda dinámica de comandos de Minecraft dentro de la consola.
+- Inventarios, posición y última coordenada de muerte por jugador.
+- Historial de muertes con la instantánea anterior del inventario.
+- Respaldo ZIP del mundo cada 2 horas y antes de detener o reiniciar desde el panel.
 
 ## Seguridad
 
@@ -26,6 +30,14 @@ Los permisos también se validan en el backend. Ocultar una sección en la inter
 La identidad visual se guarda en `server-data/panel-settings.json`. Cambiar el
 máximo de jugadores también actualiza `server-data/server.properties`; ese
 cambio requiere reiniciar Minecraft para aplicarse.
+
+Los datos de jugadores se leen desde los NBT en `world/playerdata`. El monitor
+toma una instantánea cada 30 segundos y conserva hasta 200 muertes. Por ello, el
+“inventario antes de morir” es la última instantánea disponible y puede tener
+hasta 30 segundos de diferencia.
+
+Los respaldos se guardan en `server-data/backups`. Se conservan las 24 copias
+más recientes para limitar el uso del disco.
 
 ## Configuración necesaria
 

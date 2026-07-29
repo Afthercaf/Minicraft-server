@@ -2,9 +2,18 @@ import { Router } from 'express'
 import { rconCommand } from '../lib/rcon.js'
 import { actionLimiter, readLimiter } from '../middleware/rateLimit.js'
 import { requirePermission } from '../middleware/auth.js'
+import { getDeathHistory, refreshPlayerSnapshots } from '../lib/playerMonitor.js'
 
 export const playersRouter = Router()
 playersRouter.use(requirePermission('players'))
+
+playersRouter.get('/details', readLimiter, async (req, res, next) => {
+  try { res.json({ players: await refreshPlayerSnapshots() }) } catch (err) { next(err) }
+})
+
+playersRouter.get('/deaths', readLimiter, async (req, res) => {
+  res.json({ deaths: getDeathHistory() })
+})
 
 const USERNAME_RE = /^[A-Za-z0-9_]{3,16}$/
 const IPV4_RE = /^(?:\d{1,3}\.){3}\d{1,3}$/

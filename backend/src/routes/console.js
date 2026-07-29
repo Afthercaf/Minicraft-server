@@ -8,6 +8,22 @@ export const consoleRouter = Router()
 // Comandos que no se permiten desde el panel web
 const FORBIDDEN = new Set(['stop', 'reload'])
 
+consoleRouter.get('/help', requirePermission('console'), readLimiter, async (req, res, next) => {
+  try {
+    const pages = []
+    let totalPages = 1
+    for (let page = 1; page <= Math.min(totalPages, 30); page++) {
+      const response = await rconCommand(`help ${page}`, 8000)
+      pages.push(response)
+      const match = response.match(/page\s+\d+\s+of\s+(\d+)/i)
+      if (match) totalPages = Math.min(parseInt(match[1], 10), 30)
+      else break
+    }
+    const commands = [...new Set(pages.join('\n').split(/\r?\n/).map((line) => line.trim()).filter((line) => line.startsWith('/')))]
+    res.json({ commands, pages: pages.length })
+  } catch (err) { next(err) }
+})
+
 function parsePlayerList(raw) {
   // "There are 2 of a max of 10 players online: Steve, Alex"
   const match = raw.match(/There are (\d+) of a max of (\d+) players online:?(.*)/i)
