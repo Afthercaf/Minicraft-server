@@ -37,12 +37,12 @@ export default function ServerSettingsPanel({ value, onChange }: { value: Server
     if (!file) return
     if (file.size > 2 * 1024 * 1024) return setError('Selecciona una imagen menor a 2 MB')
     const source = await createImageBitmap(file)
-    const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128
+    const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    const scale = Math.max(128 / source.width, 128 / source.height)
+    const scale = Math.max(64 / source.width, 64 / source.height)
     const width = source.width * scale, height = source.height * scale
-    ctx.drawImage(source, (128 - width) / 2, (128 - height) / 2, width, height)
+    ctx.drawImage(source, (64 - width) / 2, (64 - height) / 2, width, height)
     setForm((prev) => ({ ...prev, serverIcon: canvas.toDataURL('image/png', 0.9) }))
   }
 

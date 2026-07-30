@@ -10,6 +10,7 @@ const dataRoot = path.resolve(config.serverDataPath)
 const settingsFile = path.join(dataRoot, 'panel-settings.json')
 const propertiesFile = path.join(dataRoot, 'server.properties')
 const autoModpackFile = path.join(dataRoot, 'automodpack', 'automodpack-server.json')
+const serverIconFile = path.join(dataRoot, 'server-icon.png')
 const defaults = {
   serverName: 'CraftControl',
   serverAddress: 'killerexpert10.tail29c8ce.ts.net:25565',
@@ -62,6 +63,20 @@ async function updateAutoModpack(serverName) {
   }
 }
 
+async function updateServerIcon(dataUrl) {
+  if (!dataUrl) {
+    await fs.unlink(serverIconFile).catch((err) => { if (err.code !== 'ENOENT') throw err })
+    return
+  }
+  const match = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl)
+  if (!match) throw Object.assign(new Error('El icono debe guardarse como PNG'), { status: 400 })
+  const bytes = Buffer.from(match[1], 'base64')
+  if (bytes.length > 250_000 || bytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') {
+    throw Object.assign(new Error('El icono PNG no es válido'), { status: 400 })
+  }
+  await fs.writeFile(serverIconFile, bytes)
+}
+
 settingsRouter.get('/', readLimiter, async (req, res, next) => {
   try { res.json({ settings: await readSettings(), superadmin: req.user.superadmin }) }
   catch (err) { next(err) }
@@ -88,8 +103,12 @@ settingsRouter.put('/', requireSuperAdmin, actionLimiter, async (req, res, next)
     }
     await fs.writeFile(settingsFile, JSON.stringify(settings, null, 2), 'utf8')
     await updateAutoModpack(settings.serverName)
+    await updateServerIcon(settings.serverIcon)
     const restartRequired = maxPlayers !== current.maxPlayers || onlineMode !== current.onlineMode
-    if (restartRequired) await updateServerProperties({ 'max-players': maxPlayers, 'online-mode': onlineMode })
-    res.json({ settings, restartRequired })
+    const identityChanged = settings.serverName !== current.serverName || settings.serverIcon !== current.serverIcon
+    if (restartRequired || identityChanged) {
+      await updateServerProperties({ 'max-players': maxPlayers, 'online-mode': onlineMode, motd: settings.serverName })
+    }
+    res.json({ settings, restartRequired: restartRequired || identityChanged })
   } catch (err) { next(err) }
 })

@@ -12,6 +12,7 @@ import { systemRouter } from './routes/system.js'
 import { usersRouter } from './routes/users.js'
 import { redisReady } from './lib/redis.js'
 import { settingsRouter } from './routes/settings.js'
+import { applyAdventureBalance } from './lib/modProfiles.js'
 
 const app = express()
 
@@ -65,3 +66,7 @@ app.use((err, req, res, next) => {
 app.listen(config.port, () => {
   console.log(`Backend escuchando en puerto ${config.port}`)
 })
+
+applyAdventureBalance()
+  .then((applied) => { if (applied) console.log('Perfil equilibrado de aventura aplicado') })
+  .catch((err) => console.error(`No se pudo aplicar el perfil de aventura: ${err.message}`))

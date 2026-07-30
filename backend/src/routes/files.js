@@ -20,8 +20,39 @@ const recommendedMods = [
   { project: 'xaeros-world-map', name: "Xaero's World Map", description: 'Mapa completo del mundo.', requiredOnClient: false },
   { project: 'waystones', name: 'Waystones', description: 'Estructuras y piedras de teletransporte.', requiredOnClient: true },
   { project: 'balm', name: 'Balm', description: 'Dependencia necesaria para Waystones.', requiredOnClient: true },
+  { project: 'ct-overhaul-village', name: 'Aldeas mejoradas (CTOV)', description: 'Nuevas aldeas y puestos de saqueadores.', requiredOnClient: false },
+  { project: 'biomes-o-plenty', name: "Biomes O' Plenty", description: 'Más de 50 biomas, árboles y plantas.', requiredOnClient: true },
+  { project: 'when-dungeons-arise', name: 'When Dungeons Arise', description: 'Grandes estructuras y mazmorras de exploración.', requiredOnClient: true },
+  { project: 'yungs-better-dungeons', name: "YUNG's Better Dungeons", description: 'Rediseña las mazmorras sin saturar el mundo.', requiredOnClient: false },
+  { project: 'ice-and-fire-dragons', name: 'Ice and Fire: Dragons', description: 'Dragones, criaturas míticas y equipo.', requiredOnClient: true },
+  { project: 'l_enders-cataclysm', name: "L_Ender's Cataclysm", description: 'Jefes finales, templos y recompensas avanzadas.', requiredOnClient: true },
+  { project: 'simply-swords', name: 'Simply Swords', description: 'Espadas y armas con habilidades únicas.', requiredOnClient: true },
+  { project: 'silent-gear', name: 'Silent Gear', description: 'Minerales, materiales y equipo personalizable.', requiredOnClient: true },
+  { project: 'timeless-and-classics-zero', name: 'TaCZ', description: 'Pistolas, rifles, munición y accesorios.', requiredOnClient: true },
+  { project: 'skinrestorer', name: 'Skin Restorer', description: 'Restaura y permite administrar skins.', requiredOnClient: false },
+  { project: 'jei', name: 'Just Enough Items', description: 'Muestra las recetas de todos los objetos nuevos.', requiredOnClient: true },
+  { project: 'ferrite-core', name: 'FerriteCore', description: 'Reduce el consumo de memoria del paquete.', requiredOnClient: true },
+  { project: 'modernfix', name: 'ModernFix', description: 'Mejora carga, memoria y estabilidad.', requiredOnClient: true },
+]
+const adventureProjects = [
+  'ct-overhaul-village', 'biomes-o-plenty', 'when-dungeons-arise', 'yungs-better-dungeons',
+  'ice-and-fire-dragons', 'l_enders-cataclysm', 'simply-swords', 'silent-gear',
+  'timeless-and-classics-zero', 'skinrestorer', 'jei', 'ferrite-core', 'modernfix',
 ]
 const modKey = (value) => String(value).replace(/[^a-z0-9]/gi, '').toLowerCase()
+
+async function fetchWithRetry(url, options = {}, attempts = 3) {
+  let lastError
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, options)
+      if (response.ok || response.status < 500) return response
+      lastError = new Error(`Respuesta ${response.status}`)
+    } catch (err) { lastError = err }
+    if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, attempt * 1_500))
+  }
+  throw lastError
+}
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -78,18 +109,35 @@ async function ensureSophisticatedCore(modName) {
   return file.filename
 }
 
-async function downloadModrinthProject(project) {
+export async function downloadModrinthProject(project, visited = new Set()) {
+  if (visited.has(project)) return []
+  visited.add(project)
   const headers = { 'User-Agent': 'CraftControl/1.0 (private Minecraft server)' }
   const endpoint = `https://api.modrinth.com/v2/project/${encodeURIComponent(project)}/version?loaders=%5B%22forge%22%5D&game_versions=%5B%221.20.1%22%5D`
-  const response = await fetch(endpoint, { headers, signal: AbortSignal.timeout(20_000) })
+  const response = await fetchWithRetry(endpoint, { headers, signal: AbortSignal.timeout(30_000) })
   if (!response.ok) throw new Error(`No se pudo consultar ${project} en Modrinth`)
   const versions = await response.json()
   const version = versions.find((item) => item.version_type === 'release') || versions[0]
   const file = version?.files?.find((item) => item.primary) || version?.files?.[0]
-  if (!file?.url || !file?.hashes?.sha512 || !/^[A-Za-z0-9._+() -]+\.jar$/i.test(file.filename)) {
+  const safeFilename = file?.filename && path.basename(file.filename) === file.filename &&
+    file.filename.length <= 180 && file.filename.toLowerCase().endsWith('.jar')
+  if (!file?.url || !file?.hashes?.sha512 || !safeFilename) {
     throw new Error(`${project} no tiene un archivo Forge válido para 1.20.1`)
   }
-  const infoResponse = await fetch(`https://api.modrinth.com/v2/project/${encodeURIComponent(project)}`, {
+  const results = []
+  for (const dependency of version.dependencies || []) {
+    if (dependency.dependency_type !== 'required') continue
+    let dependencyProject = dependency.project_id
+    if (!dependencyProject && dependency.version_id) {
+      const dependencyVersion = await fetchWithRetry(`https://api.modrinth.com/v2/version/${dependency.version_id}`, {
+        headers,
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (dependencyVersion.ok) dependencyProject = (await dependencyVersion.json()).project_id
+    }
+    if (dependencyProject) results.push(...await downloadModrinthProject(dependencyProject, visited))
+  }
+  const infoResponse = await fetchWithRetry(`https://api.modrinth.com/v2/project/${encodeURIComponent(project)}`, {
     headers,
     signal: AbortSignal.timeout(15_000),
   })
@@ -98,9 +146,9 @@ async function downloadModrinthProject(project) {
   const normalizedSlug = modKey(info?.slug || project)
   const oldFiles = files.filter((name) => modKey(name).startsWith(normalizedSlug))
   if (files.some((name) => name.toLowerCase() === file.filename.toLowerCase())) {
-    return { project, filename: file.filename, status: 'already-installed' }
+    return [...results, { project, filename: file.filename, status: 'already-installed' }]
   }
-  const download = await fetch(file.url, { signal: AbortSignal.timeout(120_000) })
+  const download = await fetchWithRetry(file.url, { signal: AbortSignal.timeout(120_000) })
   if (!download.ok) throw new Error(`No se pudo descargar ${project}`)
   const bytes = Buffer.from(await download.arrayBuffer())
   if (bytes.length > 256 * 1024 * 1024) throw new Error(`${project} supera 256 MB`)
@@ -112,7 +160,7 @@ async function downloadModrinthProject(project) {
   await fs.writeFile(temporary, bytes)
   await fs.rename(temporary, path.join(modsRoot, file.filename))
   for (const old of oldFiles) await fs.unlink(path.join(modsRoot, old)).catch(() => {})
-  return { project, filename: file.filename, status: 'installed' }
+  return [...results, { project, filename: file.filename, status: 'installed' }]
 }
 
 // Repara también mods que ya estaban en la carpeta antes de usar el panel.
@@ -161,10 +209,13 @@ filesRouter.post('/recommended-mods/install', requirePermission('mods'), actionL
     const requested = String(req.body?.project || '')
     const projects = requested === 'recommended-pack'
       ? recommendedMods.map((mod) => mod.project)
+      : requested === 'adventure-pack'
+        ? adventureProjects
       : recommendedMods.some((mod) => mod.project === requested) ? [requested] : []
     if (!projects.length) return res.status(400).json({ error: 'Mod recomendado no válido' })
     const results = []
-    for (const project of projects) results.push(await downloadModrinthProject(project))
+    const visited = new Set()
+    for (const project of projects) results.push(...await downloadModrinthProject(project, visited))
     await deleteCached(['mc-admin:files:root', 'mc-admin:files:mods'])
     res.status(201).json({ results, restartRequired: true })
   } catch (err) { next(err) }
