@@ -12,7 +12,7 @@ import ServerSettingsPanel, { loadServerSettings, type ServerSettings } from '..
 type Tab = 'overview' | 'console' | 'files' | 'players' | 'config' | 'docker' | 'users'
 interface Me { user: { email: string; superadmin: boolean; permissions: string[] } }
 interface Status { online: boolean; players: { online: number; max: number; names: string[] } }
-const DEFAULT_SETTINGS: ServerSettings = { serverName: 'CraftControl', serverAddress: 'killerexpert10.tail29c8ce.ts.net:25565', serverIp: '100.76.97.8:25565', accentColor: '#10b981', serverIcon: '', maxPlayers: 10 }
+const DEFAULT_SETTINGS: ServerSettings = { serverName: 'CraftControl', serverAddress: 'killerexpert10.tail29c8ce.ts.net:25565', serverIp: '100.76.97.8:25565', accentColor: '#10b981', serverIcon: '', maxPlayers: 10, onlineMode: true }
 
 const TABS: { id: Tab; label: string; icon: string; permission?: string; superadmin?: boolean }[] = [
   { id: 'overview', label: 'Resumen', icon: '▦', permission: 'status' },

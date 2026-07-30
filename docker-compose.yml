@@ -42,10 +42,9 @@ services:
       VERSION: ${MC_VERSION:-1.20.1}
       FORGE_VERSION: ${FORGE_VERSION:-}
       MEMORY: ${MC_MEMORY:-4G}
-      MAX_PLAYERS: ${MAX_PLAYERS:-10}
       ENABLE_RCON: "true"
       RCON_PASSWORD: ${RCON_PASSWORD:?Define RCON_PASSWORD en .env}
-      ONLINE_MODE: ${ONLINE_MODE:-true}
+      # max-players y online-mode los administra el panel en server.properties.
       ENFORCE_WHITELIST: ${ENABLE_WHITELIST:-true}
       WHITELIST: ${WHITELIST_PLAYERS:-}
       MOTD: ${MOTD:-Servidor Privado}

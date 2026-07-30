@@ -8,6 +8,7 @@ export interface ServerSettings {
   accentColor: string
   serverIcon: string
   maxPlayers: number
+  onlineMode: boolean
 }
 
 const DEFAULTS: ServerSettings = {
@@ -17,6 +18,7 @@ const DEFAULTS: ServerSettings = {
   accentColor: '#10b981',
   serverIcon: '',
   maxPlayers: 10,
+  onlineMode: true,
 }
 
 export async function loadServerSettings() {
@@ -49,7 +51,7 @@ export default function ServerSettingsPanel({ value, onChange }: { value: Server
     try {
       const result = await api<{ settings: ServerSettings; restartRequired: boolean }>('/api/settings', { method: 'PUT', body: form })
       onChange(result.settings)
-      setMessage(result.restartRequired ? 'Guardado. Reinicia Minecraft para aplicar el máximo de jugadores.' : 'Configuración guardada.')
+      setMessage(result.restartRequired ? 'Guardado. Reinicia Minecraft para aplicar los cambios.' : 'Configuración guardada.')
     } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo guardar') }
   }
 
@@ -71,6 +73,14 @@ export default function ServerSettingsPanel({ value, onChange }: { value: Server
       <div><label className="field-label">Dirección Tailscale / dominio</label><input className="field font-mono" value={form.serverAddress} onChange={(e) => setForm({ ...form, serverAddress: e.target.value })} placeholder="otra-pc.tailnet.ts.net:25565" /></div>
       <div><label className="field-label">IP alternativa</label><input className="field font-mono" value={form.serverIp} onChange={(e) => setForm({ ...form, serverIp: e.target.value })} placeholder="100.x.x.x:25565" /></div>
       <div><label className="field-label">Color principal</label><div className="flex gap-2"><input className="h-11 w-14 cursor-pointer rounded-lg border border-slate-700 bg-slate-900 p-1" type="color" value={form.accentColor} onChange={(e) => setForm({ ...form, accentColor: e.target.value })}/><input className="field mt-0 font-mono" value={form.accentColor} onChange={(e) => setForm({ ...form, accentColor: e.target.value })}/></div></div>
+      <div className="sm:col-span-2">
+        <label className="field-label">Tipo de acceso</label>
+        <div className="grid grid-cols-2 gap-2 rounded-xl bg-black/30 p-1">
+          <button type="button" onClick={() => setForm({ ...form, onlineMode: true })} className={`rounded-lg px-4 py-3 text-sm ${form.onlineMode ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>✓ Cuenta oficial</button>
+          <button type="button" onClick={() => setForm({ ...form, onlineMode: false })} className={`rounded-lg px-4 py-3 text-sm ${!form.onlineMode ? 'bg-amber-600 text-white' : 'text-slate-400'}`}>Permitir no premium</button>
+        </div>
+        {!form.onlineMode && <p className="mt-2 rounded-lg bg-amber-950/60 p-3 text-xs text-amber-300">Advertencia: Minecraft no verificará la identidad de los jugadores. Usa whitelist y nunca concedas OP por nombre sin comprobar quién entró.</p>}
+      </div>
     </div>
     <button className="button-primary mt-6">Guardar apariencia y servidor</button>
   </form>

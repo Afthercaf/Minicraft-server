@@ -9,6 +9,7 @@ export const settingsRouter = Router()
 const dataRoot = path.resolve(config.serverDataPath)
 const settingsFile = path.join(dataRoot, 'panel-settings.json')
 const propertiesFile = path.join(dataRoot, 'server.properties')
+const autoModpackFile = path.join(dataRoot, 'automodpack', 'automodpack-server.json')
 const defaults = {
   serverName: 'CraftControl',
   serverAddress: 'killerexpert10.tail29c8ce.ts.net:25565',
@@ -16,6 +17,7 @@ const defaults = {
   accentColor: '#10b981',
   serverIcon: '',
   maxPlayers: 10,
+  onlineMode: true,
 }
 
 async function readSettings() {
@@ -30,11 +32,34 @@ function cleanText(value, max) {
   return String(value || '').trim().replace(/[<>"'`]/g, '').slice(0, max)
 }
 
-async function updateMaxPlayers(maxPlayers) {
+async function updateServerProperties(values) {
   let content = await fs.readFile(propertiesFile, 'utf8')
-  if (/^max-players=.*$/m.test(content)) content = content.replace(/^max-players=.*$/m, `max-players=${maxPlayers}`)
-  else content += `\nmax-players=${maxPlayers}\n`
+  for (const [key, value] of Object.entries(values)) {
+    const pattern = new RegExp(`^${key}=.*$`, 'm')
+    if (pattern.test(content)) content = content.replace(pattern, `${key}=${value}`)
+    else content += `\n${key}=${value}\n`
+  }
   await fs.writeFile(propertiesFile, content, 'utf8')
+}
+
+async function updateAutoModpack(serverName) {
+  try {
+    const autoModpack = JSON.parse(await fs.readFile(autoModpackFile, 'utf8'))
+    autoModpack.modpackName = cleanText(serverName, 50)
+    autoModpack.modpackHost = true
+    autoModpack.generateModpackOnStart = true
+    autoModpack.requireAutoModpackOnClient = true
+    autoModpack.nagUnModdedClients = true
+    autoModpack.nagMessage = 'Este servidor instala y actualiza sus mods con AutoModpack.'
+    autoModpack.nagClickableMessage = 'Descargar AutoModpack'
+    autoModpack.nagClickableLink = 'https://modrinth.com/mod/automodpack'
+    autoModpack.disableInternalTLS = false
+    autoModpack.validateSecrets = true
+    autoModpack.acceptedLoaders = ['forge']
+    await fs.writeFile(autoModpackFile, JSON.stringify(autoModpack, null, 2), 'utf8')
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err
+  }
 }
 
 settingsRouter.get('/', readLimiter, async (req, res, next) => {
@@ -48,6 +73,7 @@ settingsRouter.put('/', requireSuperAdmin, actionLimiter, async (req, res, next)
     const maxPlayers = Math.min(Math.max(parseInt(req.body?.maxPlayers, 10) || current.maxPlayers, 1), 500)
     const accentColor = /^#[0-9a-f]{6}$/i.test(req.body?.accentColor) ? req.body.accentColor : current.accentColor
     const icon = String(req.body?.serverIcon || '')
+    const onlineMode = req.body?.onlineMode === undefined ? current.onlineMode : req.body.onlineMode === true
     if (icon && (!/^data:image\/(png|jpeg|webp);base64,/i.test(icon) || icon.length > 250_000)) {
       return res.status(400).json({ error: 'La imagen no es válida o es demasiado grande' })
     }
@@ -58,9 +84,12 @@ settingsRouter.put('/', requireSuperAdmin, actionLimiter, async (req, res, next)
       accentColor,
       serverIcon: icon,
       maxPlayers,
+      onlineMode,
     }
     await fs.writeFile(settingsFile, JSON.stringify(settings, null, 2), 'utf8')
-    if (maxPlayers !== current.maxPlayers) await updateMaxPlayers(maxPlayers)
-    res.json({ settings, restartRequired: maxPlayers !== current.maxPlayers })
+    await updateAutoModpack(settings.serverName)
+    const restartRequired = maxPlayers !== current.maxPlayers || onlineMode !== current.onlineMode
+    if (restartRequired) await updateServerProperties({ 'max-players': maxPlayers, 'online-mode': onlineMode })
+    res.json({ settings, restartRequired })
   } catch (err) { next(err) }
 })

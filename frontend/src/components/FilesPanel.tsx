@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 
 interface FileEntry { name: string; path: string; type: 'folder' | 'file'; size: number; modified: string }
 interface Me { user: { superadmin: boolean; permissions: string[] } }
+interface RecommendedMod { project: string; name: string; description: string; requiredOnClient: boolean; installed: boolean }
 const formatSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1048576).toFixed(1)} MB`
 
 export default function FilesPanel() {
@@ -14,6 +15,8 @@ export default function FilesPanel() {
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState('')
   const [canUpload, setCanUpload] = useState(false)
+  const [recommended, setRecommended] = useState<RecommendedMod[]>([])
+  const [installing, setInstalling] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async (next: string) => {
@@ -28,7 +31,11 @@ export default function FilesPanel() {
 
   useEffect(() => {
     load('')
-    api<Me>('/api/me').then(({ user }) => setCanUpload(user.superadmin || user.permissions.includes('mods'))).catch(() => {})
+    api<Me>('/api/me').then(({ user }) => {
+      const allowed = user.superadmin || user.permissions.includes('mods')
+      setCanUpload(allowed)
+      if (allowed) api<{ mods: RecommendedMod[] }>('/api/files/recommended-mods').then((data) => setRecommended(data.mods)).catch(() => {})
+    }).catch(() => {})
   }, [load])
 
   async function open(entry: FileEntry) {
@@ -54,6 +61,19 @@ export default function FilesPanel() {
       await load('mods')
     } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo subir el mod') }
     finally { setUploading(false); if (inputRef.current) inputRef.current.value = '' }
+  }
+
+  async function installRecommended(project: string) {
+    setInstalling(project); setError(''); setMessage('')
+    try {
+      const result = await api<{ results: { filename: string; status: string }[] }>('/api/files/recommended-mods/install', { method: 'POST', body: { project } })
+      const installed = result.results.filter((item) => item.status === 'installed').length
+      setMessage(`${installed} mod(s) instalado(s) y verificados. Reinicia Minecraft.`)
+      const data = await api<{ mods: RecommendedMod[] }>('/api/files/recommended-mods')
+      setRecommended(data.mods)
+      await load('mods')
+    } catch (e) { setError(e instanceof Error ? e.message : 'No se pudieron instalar los mods') }
+    finally { setInstalling('') }
   }
 
   const crumbs = path ? path.split('/') : []
@@ -82,6 +102,21 @@ export default function FilesPanel() {
         </button>)}
       </div>
       <p className="mt-4 text-xs text-slate-500">Mods .jar de hasta 256 MB. Reinicia el servidor después de subirlos.</p>
+      {canUpload && <div className="mt-6 border-t border-slate-800 pt-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h4 className="font-semibold">Mods recomendados para 1.20.1 Forge</h4><p className="text-xs text-slate-500">Descarga oficial, firma verificada y dependencias incluidas.</p></div>
+          <button disabled={!!installing} onClick={() => installRecommended('recommended-pack')} className="button-primary">{installing === 'recommended-pack' ? 'Instalando…' : 'Instalar paquete completo'}</button>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {recommended.map((mod) => <div key={mod.project} className="rounded-xl border border-slate-800 bg-black/20 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div><p className="text-sm font-medium">{mod.name}</p><p className="mt-1 text-xs text-slate-500">{mod.description}</p><p className="mt-1 text-[11px] text-slate-600">{mod.requiredOnClient ? 'Se enviará al cliente con AutoModpack' : 'Opcional en cliente'}</p></div>
+              <button disabled={mod.installed || !!installing} onClick={() => installRecommended(mod.project)} className="button-secondary shrink-0 text-xs">{mod.installed ? 'Instalado' : installing === mod.project ? '…' : 'Instalar'}</button>
+            </div>
+          </div>)}
+        </div>
+        <p className="mt-3 text-xs text-amber-300">Cada jugador debe instalar AutoModpack una vez en su Minecraft. Después, al entrar, recibirá las actualizaciones del servidor.</p>
+      </div>}
     </section>
     <aside className="panel min-h-80"><h3 className="font-semibold">Vista previa</h3>
       {preview ? <><p className="mt-1 truncate text-xs text-emerald-500">{preview.path}</p><pre className="mt-4 max-h-[65vh] overflow-auto whitespace-pre-wrap rounded-xl bg-black p-4 text-xs text-slate-300">{preview.content}</pre></> :

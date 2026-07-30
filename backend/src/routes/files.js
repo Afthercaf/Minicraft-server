@@ -14,6 +14,14 @@ const modsRoot = path.join(root, 'mods')
 const uploadRoot = path.join(root, '.uploads')
 const textExtensions = new Set(['.txt', '.log', '.json', '.properties', '.toml', '.conf', '.yml', '.yaml', '.cfg'])
 const hiddenPanelFiles = new Set(['panel-player-snapshots.json', 'panel-deaths.json'])
+const recommendedMods = [
+  { project: 'automodpack', name: 'AutoModpack', description: 'Sincroniza automáticamente los mods con cada jugador.', requiredOnClient: true },
+  { project: 'xaeros-minimap', name: "Xaero's Minimap", description: 'Minimapa, puntos y coordenadas.', requiredOnClient: false },
+  { project: 'xaeros-world-map', name: "Xaero's World Map", description: 'Mapa completo del mundo.', requiredOnClient: false },
+  { project: 'waystones', name: 'Waystones', description: 'Estructuras y piedras de teletransporte.', requiredOnClient: true },
+  { project: 'balm', name: 'Balm', description: 'Dependencia necesaria para Waystones.', requiredOnClient: true },
+]
+const modKey = (value) => String(value).replace(/[^a-z0-9]/gi, '').toLowerCase()
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -70,6 +78,43 @@ async function ensureSophisticatedCore(modName) {
   return file.filename
 }
 
+async function downloadModrinthProject(project) {
+  const headers = { 'User-Agent': 'CraftControl/1.0 (private Minecraft server)' }
+  const endpoint = `https://api.modrinth.com/v2/project/${encodeURIComponent(project)}/version?loaders=%5B%22forge%22%5D&game_versions=%5B%221.20.1%22%5D`
+  const response = await fetch(endpoint, { headers, signal: AbortSignal.timeout(20_000) })
+  if (!response.ok) throw new Error(`No se pudo consultar ${project} en Modrinth`)
+  const versions = await response.json()
+  const version = versions.find((item) => item.version_type === 'release') || versions[0]
+  const file = version?.files?.find((item) => item.primary) || version?.files?.[0]
+  if (!file?.url || !file?.hashes?.sha512 || !/^[A-Za-z0-9._+() -]+\.jar$/i.test(file.filename)) {
+    throw new Error(`${project} no tiene un archivo Forge válido para 1.20.1`)
+  }
+  const infoResponse = await fetch(`https://api.modrinth.com/v2/project/${encodeURIComponent(project)}`, {
+    headers,
+    signal: AbortSignal.timeout(15_000),
+  })
+  const info = infoResponse.ok ? await infoResponse.json() : null
+  const files = await fs.readdir(modsRoot).catch(() => [])
+  const normalizedSlug = modKey(info?.slug || project)
+  const oldFiles = files.filter((name) => modKey(name).startsWith(normalizedSlug))
+  if (files.some((name) => name.toLowerCase() === file.filename.toLowerCase())) {
+    return { project, filename: file.filename, status: 'already-installed' }
+  }
+  const download = await fetch(file.url, { signal: AbortSignal.timeout(120_000) })
+  if (!download.ok) throw new Error(`No se pudo descargar ${project}`)
+  const bytes = Buffer.from(await download.arrayBuffer())
+  if (bytes.length > 256 * 1024 * 1024) throw new Error(`${project} supera 256 MB`)
+  const hash = createHash('sha512').update(bytes).digest('hex')
+  if (hash !== file.hashes.sha512.toLowerCase()) throw new Error(`La firma de ${project} no coincide`)
+  await fs.mkdir(modsRoot, { recursive: true })
+  await fs.mkdir(uploadRoot, { recursive: true })
+  const temporary = path.join(uploadRoot, `${randomUUID()}.dependency`)
+  await fs.writeFile(temporary, bytes)
+  await fs.rename(temporary, path.join(modsRoot, file.filename))
+  for (const old of oldFiles) await fs.unlink(path.join(modsRoot, old)).catch(() => {})
+  return { project, filename: file.filename, status: 'installed' }
+}
+
 // Repara también mods que ya estaban en la carpeta antes de usar el panel.
 fs.readdir(modsRoot)
   .then((names) => names.find((name) => name.toLowerCase().startsWith('sophisticatedbackpacks-')))
@@ -96,6 +141,32 @@ filesRouter.get('/', requirePermission('files'), readLimiter, async (req, res, n
     const result = { path: relative, entries: data }
     await setCachedJson(cacheKey, result, 5)
     res.json({ ...result, cached: false })
+  } catch (err) { next(err) }
+})
+
+filesRouter.get('/recommended-mods', requirePermission('mods'), readLimiter, async (req, res, next) => {
+  try {
+    const files = await fs.readdir(modsRoot).catch(() => [])
+    res.json({
+      mods: recommendedMods.map((mod) => ({
+        ...mod,
+        installed: files.some((name) => modKey(name).startsWith(modKey(mod.project))),
+      })),
+    })
+  } catch (err) { next(err) }
+})
+
+filesRouter.post('/recommended-mods/install', requirePermission('mods'), actionLimiter, async (req, res, next) => {
+  try {
+    const requested = String(req.body?.project || '')
+    const projects = requested === 'recommended-pack'
+      ? recommendedMods.map((mod) => mod.project)
+      : recommendedMods.some((mod) => mod.project === requested) ? [requested] : []
+    if (!projects.length) return res.status(400).json({ error: 'Mod recomendado no válido' })
+    const results = []
+    for (const project of projects) results.push(await downloadModrinthProject(project))
+    await deleteCached(['mc-admin:files:root', 'mc-admin:files:mods'])
+    res.status(201).json({ results, restartRequired: true })
   } catch (err) { next(err) }
 })
 
