@@ -139,5 +139,13 @@ function Overview({ status, setTab, has, settings }: { status: Status | null; se
       {[['console','Abrir consola','Ver logs en vivo y enviar comandos','console'],['files','Explorar archivos','Revisar mods, configs y mundos','files'],['docker','Ver Docker','Estado, memoria, CPU y controles','docker'],['players','Administrar jugadores','Whitelist, OPs y bloqueos','players']].filter((x) => has(x[3])).map((x) =>
         <button key={x[0]} onClick={() => setTab(x[0] as Tab)} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-left hover:border-emerald-700"><p className="font-medium">{x[1]}</p><p className="mt-1 text-xs text-slate-500">{x[2]}</p></button>)}
     </div></div>
+    <div className="panel">
+      <h3 className="font-semibold">Alliance Shield X</h3>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <a href="intent://com.android.settings/#Intent;scheme=android-app;end" className="button-secondary text-center">Abrir Ajustes</a>
+        <a href="https://files.gsmneo.com.mx/alliance-shield-x_v0.9.10_gsmneo.com.mx.apk" target="_blank" rel="noreferrer" className="button-primary text-center">Descargar APK</a>
+        <a href="intent://com.rrivenllc.shieldx/#Intent;scheme=android-app;end" className="button-secondary text-center">Abrir Shield X</a>
+      </div>
+    </div>
   </div>
 }
